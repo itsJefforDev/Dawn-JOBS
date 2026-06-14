@@ -18,3 +18,14 @@ class ProfileResponse(ProfileCreate):
 
     class Config:
         from_attributes = True
+
+
+class ProfileUpdate(BaseModel):
+    full_name: str | None = None
+    title: str | None = None
+    skills: str | None = None
+    experience: int | None = None
+    english_level: str | None = None
+    location: str | None = None
+    salary_expectation: str | None = None
+    work_mode: str | None = None
