@@ -5,6 +5,8 @@ from app.api.routes.profile import router as profile_router
 from app.models.profile import Profile
 from app.api.routes.job_preference import router as preference_router
 from app.models.job_preference import JobPreference
+from app.api.routes.cv import router as cv_router
+from app.models.cv import CV
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,6 +17,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(preference_router)
+app.include_router(cv_router)
 
 @app.get("/")
 def root():
