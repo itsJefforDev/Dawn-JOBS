@@ -4,7 +4,8 @@ from app.core.database import get_db
 from app.services.job_service import (
     search_jobs,
     get_mock_jobs,
-    get_saved_jobs
+    get_saved_jobs,
+    get_unmatched_jobs
 )
 
 router = APIRouter(
@@ -29,3 +30,7 @@ def match_jobs(user_id: int, db: Session = Depends(get_db)):
 @router.get("/history")
 def job_history(db: Session = Depends(get_db)):
     return get_saved_jobs(db)
+
+@router.get("/unmatched/{user_id}")
+def unmatched_jobs(user_id: int, db: Session = Depends(get_db)):
+    return get_unmatched_jobs(db, user_id)

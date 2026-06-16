@@ -69,3 +69,27 @@ def search_jobs(db: Session, user_id: int):
 # Historial guardado
 def get_saved_jobs(db: Session):
     return db.query(Job).all()
+
+def get_unmatched_jobs(db: Session, user_id: int):
+    preference = db.query(JobPreference).filter(
+        JobPreference.user_id == user_id
+    ).first()
+
+    if not preference:
+        return MOCK_JOBS
+
+    unmatched_jobs = []
+
+    for job_data in MOCK_JOBS:
+        is_match = (
+            preference.role.lower() in job_data["title"].lower()
+            and (
+                preference.modality is None
+                or preference.modality == job_data["modality"]
+            )
+        )
+
+        if not is_match:
+            unmatched_jobs.append(job_data)
+
+    return unmatched_jobs
