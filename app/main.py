@@ -10,6 +10,7 @@ from app.models.cv import CV
 from app.api.routes.job import router as job_router
 from app.models.job import Job
 from app.api.routes.applications import router as application_router
+from app.api.routes.auto_apply import router as auto_apply_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,6 +24,7 @@ app.include_router(preference_router)
 app.include_router(cv_router)
 app.include_router(job_router)
 app.include_router(application_router)
+app.include_router(auto_apply_router)
 
 @app.get("/")
 def root():
