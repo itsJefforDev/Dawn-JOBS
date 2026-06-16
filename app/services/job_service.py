@@ -57,3 +57,6 @@ def search_jobs(db: Session, user_id: int):
 
 def get_all_jobs(db: Session):
     return db.query(Job).all()
+
+def get_mock_jobs():
+    return MOCK_JOBS

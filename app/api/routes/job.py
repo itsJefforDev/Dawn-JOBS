@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.job import JobResponse
 from app.services.job_service import search_jobs, get_all_jobs
+from app.services.job_service import search_jobs, get_mock_jobs
 
 router = APIRouter(
     prefix="/jobs",
@@ -20,3 +21,7 @@ def search(db: Session = Depends(get_db)):
 @router.get("/", response_model=list[JobResponse])
 def get_jobs(db: Session = Depends(get_db)):
     return get_all_jobs(db)
+
+@router.get("/all")
+def get_all_mock_jobs():
+    return get_mock_jobs()
