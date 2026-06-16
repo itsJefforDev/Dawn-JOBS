@@ -1,27 +1,31 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.schemas.job import JobResponse
-from app.services.job_service import search_jobs, get_all_jobs
-from app.services.job_service import search_jobs, get_mock_jobs
+from app.services.job_service import (
+    search_jobs,
+    get_mock_jobs,
+    get_saved_jobs
+)
 
 router = APIRouter(
     prefix="/jobs",
     tags=["Jobs"]
 )
 
-FAKE_USER_ID = 1
 
-
-@router.get("/search", response_model=list[JobResponse])
-def search(db: Session = Depends(get_db)):
-    return search_jobs(db, FAKE_USER_ID)
-
-
-@router.get("/", response_model=list[JobResponse])
-def get_jobs(db: Session = Depends(get_db)):
-    return get_all_jobs(db)
-
+# Trae todos los mocks sin guardar
 @router.get("/all")
-def get_all_mock_jobs():
+def all_jobs():
     return get_mock_jobs()
+
+
+# Busca y guarda matches
+@router.post("/search/{user_id}")
+def match_jobs(user_id: int, db: Session = Depends(get_db)):
+    return search_jobs(db, user_id)
+
+
+# Trae historial guardado
+@router.get("/history")
+def job_history(db: Session = Depends(get_db)):
+    return get_saved_jobs(db)

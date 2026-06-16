@@ -25,6 +25,12 @@ MOCK_JOBS = [
 ]
 
 
+# Devuelve TODOS los mocks sin guardar nada
+def get_mock_jobs():
+    return MOCK_JOBS
+
+
+# Busca según preferencias y guarda solo matches
 def search_jobs(db: Session, user_id: int):
     preference = db.query(JobPreference).filter(
         JobPreference.user_id == user_id
@@ -43,20 +49,23 @@ def search_jobs(db: Session, user_id: int):
                 or preference.modality == job_data["modality"]
             )
         ):
-            job = Job(**job_data)
-            db.add(job)
-            matched_jobs.append(job)
+            # Evita duplicados
+            existing_job = db.query(Job).filter(
+                Job.url == job_data["url"]
+            ).first()
 
-    db.commit()
-
-    for job in matched_jobs:
-        db.refresh(job)
+            if not existing_job:
+                job = Job(**job_data)
+                db.add(job)
+                db.commit()
+                db.refresh(job)
+                matched_jobs.append(job)
+            else:
+                matched_jobs.append(existing_job)
 
     return matched_jobs
 
 
-def get_all_jobs(db: Session):
+# Historial guardado
+def get_saved_jobs(db: Session):
     return db.query(Job).all()
-
-def get_mock_jobs():
-    return MOCK_JOBS
