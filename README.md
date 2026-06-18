@@ -1,2 +1,2 @@
 # Dawn-JOBS
-Personal Software to find your ideal job
+Personal Software project to find your ideal job
