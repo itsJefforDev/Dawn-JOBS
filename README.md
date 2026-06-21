@@ -1,2 +1,2 @@
 # Dawn-JOBS (BACKEND)
-Personal Software project to find your ideal job
+Personal Software project to find your ideal job builded on python
