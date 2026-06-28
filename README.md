@@ -1,2 +1,2 @@
 # Dawn-JOBS (BACKEND)
-Personal Software project to find your ideal job builded on python with fast-api and IA agents
+Personal Software project to find your ideal job builded on python with fast-api and IA agents and external jobs
