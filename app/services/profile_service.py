@@ -1,11 +1,74 @@
-from sqlalchemy.orm import Session
-from app.models.profile import Profile
-from app.schemas.profile import ProfileCreate
-from app.schemas.profile import ProfileUpdate
+"""
+Servicio de perfiles.
 
-def create_profile(db: Session, user_id: int, profile: ProfileCreate):
+Este módulo contiene toda la lógica de negocio relacionada con
+el perfil profesional del usuario.
+
+IMPORTANTE
+----------
+Todas las operaciones utilizan el usuario autenticado obtenido
+desde el JWT.
+
+Por motivos de seguridad nunca se recibe el user_id desde
+el frontend.
+
+Autor:
+Job Bot Backend
+"""
+
+from sqlalchemy.orm import Session
+
+from app.models.profile import Profile
+from app.models.user import User
+
+from app.schemas.profile import (
+    ProfileCreate,
+    ProfileUpdate
+)
+
+
+# ==========================================================
+# CREATE PROFILE
+# ==========================================================
+
+def create_profile(
+    db: Session,
+    current_user: User,
+    profile: ProfileCreate
+):
+    """
+    Crea el perfil profesional del usuario autenticado.
+
+    Parámetros
+    ----------
+    db : Session
+        Sesión de SQLAlchemy.
+
+    current_user : User
+        Usuario autenticado obtenido mediante JWT.
+
+    profile : ProfileCreate
+        Información del perfil.
+
+    Retorna
+    -------
+    Profile
+        Perfil creado.
+
+    Nota
+    ----
+    Un usuario únicamente puede tener un perfil.
+    """
+
+    existing_profile = db.query(Profile).filter(
+        Profile.user_id == current_user.id
+    ).first()
+
+    if existing_profile:
+        return None
+
     new_profile = Profile(
-        user_id=user_id,
+        user_id=current_user.id,
         full_name=profile.full_name,
         title=profile.title,
         skills=profile.skills,
@@ -23,28 +86,51 @@ def create_profile(db: Session, user_id: int, profile: ProfileCreate):
     return new_profile
 
 
-def get_profiles(db: Session):
-    return db.query(Profile).all()
+# ==========================================================
+# GET MY PROFILE
+# ==========================================================
+
+def get_my_profile(
+    db: Session,
+    current_user: User
+):
+    """
+    Obtiene el perfil del usuario autenticado.
+
+    Nunca recibe profile_id.
+
+    Retorna
+    -------
+    Profile | None
+    """
+
+    return db.query(Profile).filter(
+        Profile.user_id == current_user.id
+    ).first()
 
 
-def get_profile_by_id(db: Session, profile_id: int):
-    return db.query(Profile).filter(Profile.id == profile_id).first()
+# ==========================================================
+# UPDATE PROFILE
+# ==========================================================
 
+def update_my_profile(
+    db: Session,
+    current_user: User,
+    profile_data: ProfileUpdate
+):
+    """
+    Actualiza el perfil del usuario autenticado.
 
-def delete_profile(db: Session, profile_id: int):
-    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    Sólo se actualizan los campos enviados.
 
-    if not profile:
-        return None
+    Retorna
+    -------
+    Profile | None
+    """
 
-    db.delete(profile)
-    db.commit()
-
-    return profile
-
-
-def update_profile(db: Session, profile_id: int, profile_data: ProfileUpdate):
-    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    profile = db.query(Profile).filter(
+        Profile.user_id == current_user.id
+    ).first()
 
     if not profile:
         return None
@@ -56,5 +142,34 @@ def update_profile(db: Session, profile_id: int, profile_data: ProfileUpdate):
 
     db.commit()
     db.refresh(profile)
+
+    return profile
+
+
+# ==========================================================
+# DELETE PROFILE
+# ==========================================================
+
+def delete_my_profile(
+    db: Session,
+    current_user: User
+):
+    """
+    Elimina el perfil del usuario autenticado.
+
+    Retorna
+    -------
+    Profile | None
+    """
+
+    profile = db.query(Profile).filter(
+        Profile.user_id == current_user.id
+    ).first()
+
+    if not profile:
+        return None
+
+    db.delete(profile)
+    db.commit()
 
     return profile
