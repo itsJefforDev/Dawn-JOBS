@@ -1,55 +1,171 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""
+Rutas del módulo Profile.
+
+Todas las operaciones requieren autenticación mediante JWT.
+
+El usuario autenticado es obtenido automáticamente mediante
+la dependencia get_current_user(), evitando recibir user_id
+desde el frontend.
+
+Endpoints:
+
+POST    /profile/me      Crear perfil
+GET     /profile/me      Obtener mi perfil
+PUT     /profile/me      Actualizar mi perfil
+DELETE  /profile/me      Eliminar mi perfil
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.profile import ProfileUpdate
-from app.services.profile_service import update_profile
 
 from app.core.database import get_db
-from app.schemas.profile import ProfileCreate, ProfileResponse
-from app.services.profile_service import (
-    create_profile,
-    get_profiles,
-    get_profile_by_id,
-    delete_profile
+from app.dependencies.auth import get_current_user
+
+from app.models.user import User
+
+from app.schemas.profile import (
+    ProfileCreate,
+    ProfileUpdate,
+    ProfileResponse
 )
 
-router = APIRouter(prefix="/profiles", tags=["Profiles"])
+from app.services import profile_service
 
 
-@router.post("/", response_model=ProfileResponse)
-def create(profile: ProfileCreate, db: Session = Depends(get_db)):
-    return create_profile(db, user_id=1, profile=profile)
+router = APIRouter(
+    prefix="/profile",
+    tags=["Profile"]
+)
 
 
-@router.get("/")
-def get_all(db: Session = Depends(get_db)):
-    return get_profiles(db)
+# ==========================================================
+# CREATE PROFILE
+# ==========================================================
+
+@router.post(
+    "/me",
+    response_model=ProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear mi perfil",
+    description="""
+Crea el perfil profesional del usuario autenticado.
+
+Un usuario únicamente puede tener un perfil.
+Si ya existe uno, se devolverá un error.
+"""
+)
+def create_profile(
+    profile: ProfileCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    new_profile = profile_service.create_profile(
+        db,
+        current_user,
+        profile
+    )
+
+    if not new_profile:
+        raise HTTPException(
+            status_code=400,
+            detail="Profile already exists."
+        )
+
+    return new_profile
 
 
-@router.get("/{profile_id}")
-def get_one(profile_id: int, db: Session = Depends(get_db)):
-    profile = get_profile_by_id(db, profile_id)
+# ==========================================================
+# GET MY PROFILE
+# ==========================================================
+
+@router.get(
+    "/me",
+    response_model=ProfileResponse,
+    summary="Obtener mi perfil",
+    description="""
+Obtiene el perfil del usuario autenticado.
+"""
+)
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    profile = profile_service.get_my_profile(
+        db,
+        current_user
+    )
 
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Profile not found."
+        )
 
     return profile
 
 
-@router.delete("/{profile_id}")
-def remove(profile_id: int, db: Session = Depends(get_db)):
-    profile = delete_profile(db, profile_id)
+# ==========================================================
+# UPDATE PROFILE
+# ==========================================================
+
+@router.put(
+    "/me",
+    response_model=ProfileResponse,
+    summary="Actualizar mi perfil",
+    description="""
+Actualiza únicamente los campos enviados del perfil del usuario autenticado.
+"""
+)
+def update_profile(
+    profile_data: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    profile = profile_service.update_my_profile(
+        db,
+        current_user,
+        profile_data
+    )
 
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Profile not found."
+        )
 
-    return {"message": "Profile deleted successfully"}
+    return profile
 
 
-@router.put("/{profile_id}", response_model=ProfileResponse)
-def update(profile_id: int, profile: ProfileUpdate, db: Session = Depends(get_db)):
-    updated_profile = update_profile(db, profile_id, profile)
+# ==========================================================
+# DELETE PROFILE
+# ==========================================================
 
-    if not updated_profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+@router.delete(
+    "/me",
+    summary="Eliminar mi perfil",
+    description="""
+Elimina el perfil del usuario autenticado.
+"""
+)
+def delete_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
 
-    return updated_profile
+    profile = profile_service.delete_my_profile(
+        db,
+        current_user
+    )
+
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Profile not found."
+        )
+
+    return {
+        "message": "Profile deleted successfully."
+    }
