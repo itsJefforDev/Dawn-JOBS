@@ -8,10 +8,34 @@ class Application(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
+    # Usuario propietario de la postulación
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
-    status = Column(String, default="saved")
-    notes = Column(String, nullable=True)
+    # Vacante a la que aplicó
+    job_id = Column(
+        Integer,
+        ForeignKey("jobs.id"),
+        nullable=False
+    )
 
-    applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Estado actual de la aplicación
+    status = Column(
+        String,
+        default="saved"
+    )
+
+    # Notas adicionales
+    notes = Column(
+        String,
+        nullable=True
+    )
+
+    # Fecha de creación
+    applied_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
