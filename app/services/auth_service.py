@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.schemas.user import UserCreate
+from app.schemas.user_schema import UserCreate
 
 from app.core.security import (
     hash_password,
@@ -46,11 +46,11 @@ def create_user(db: Session, user_data: UserCreate):
     # --------------------------------------------------------
 
     new_user = User(
-        username=user_data.username,
+        name=user_data.name,
         email=user_data.email,
 
         # La contraseña se transforma en un hash
-        password_hash=hash_password(user_data.password)
+        password_hash=hash_password(user_data.password_hash)
     )
 
     # --------------------------------------------------------
@@ -120,7 +120,7 @@ def login_user(db: Session, email: str, password: str):
         "token_type": "bearer",
         "user": {
             "id": user.id,
-            "username": user.username,
+            "name": user.name,
             "email": user.email
         }
     }
