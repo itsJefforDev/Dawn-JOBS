@@ -1,19 +1,18 @@
 """
-Servicio de perfiles.
+Servicio de gestión de perfiles.
 
-Este módulo contiene toda la lógica de negocio relacionada con
-el perfil profesional del usuario.
+Responsabilidades:
 
-IMPORTANTE
-----------
-Todas las operaciones utilizan el usuario autenticado obtenido
-desde el JWT.
+    - Crear perfiles.
+    - Obtener el perfil del usuario autenticado.
+    - Actualizar el perfil.
+    - Eliminar el perfil.
 
-Por motivos de seguridad nunca se recibe el user_id desde
-el frontend.
+IMPORTANTE:
 
-Autor:
-Job Bot Backend
+Este servicio nunca recibe un user_id enviado por el frontend.
+
+El user_id proviene del usuario autenticado mediante JWT.
 """
 
 from sqlalchemy.orm import Session
@@ -27,57 +26,75 @@ from app.schemas.profile import (
 )
 
 
-# ==========================================================
+# ============================================================
 # CREATE PROFILE
-# ==========================================================
+# ============================================================
 
 def create_profile(
     db: Session,
     current_user: User,
-    profile: ProfileCreate
+    profile_data: ProfileCreate
 ):
     """
-    Crea el perfil profesional del usuario autenticado.
+    Crea el perfil del usuario autenticado.
+
+    Un usuario solamente puede tener un perfil.
 
     Parámetros
     ----------
-    db : Session
+    db:
         Sesión de SQLAlchemy.
 
-    current_user : User
+    current_user:
         Usuario autenticado obtenido mediante JWT.
 
-    profile : ProfileCreate
-        Información del perfil.
+    profile_data:
+        Datos del nuevo perfil.
 
-    Retorna
+    Returns
     -------
-    Profile
+    Profile:
         Perfil creado.
 
-    Nota
-    ----
-    Un usuario únicamente puede tener un perfil.
+    None:
+        Si el usuario ya tiene un perfil.
     """
 
-    existing_profile = db.query(Profile).filter(
-        Profile.user_id == current_user.id
-    ).first()
+    # --------------------------------------------------------
+    # Verificar si ya existe un perfil
+    # --------------------------------------------------------
+
+    existing_profile = (
+        db.query(Profile)
+        .filter(
+            Profile.user_id == current_user.id
+        )
+        .first()
+    )
 
     if existing_profile:
         return None
 
+    # --------------------------------------------------------
+    # Crear perfil
+    # --------------------------------------------------------
+
     new_profile = Profile(
         user_id=current_user.id,
-        full_name=profile.full_name,
-        title=profile.title,
-        skills=profile.skills,
-        experience=profile.experience,
-        english_level=profile.english_level,
-        location=profile.location,
-        salary_expectation=profile.salary_expectation,
-        work_mode=profile.work_mode
+
+        full_name=profile_data.full_name,
+        title=profile_data.title,
+        skills=profile_data.skills,
+        experience=profile_data.experience,
+        english_level=profile_data.english_level,
+        location=profile_data.location,
+        salary_expectation=profile_data.salary_expectation,
+        work_mode=profile_data.work_mode
     )
+
+    # --------------------------------------------------------
+    # Persistir
+    # --------------------------------------------------------
 
     db.add(new_profile)
     db.commit()
@@ -86,9 +103,9 @@ def create_profile(
     return new_profile
 
 
-# ==========================================================
+# ============================================================
 # GET MY PROFILE
-# ==========================================================
+# ============================================================
 
 def get_my_profile(
     db: Session,
@@ -97,21 +114,22 @@ def get_my_profile(
     """
     Obtiene el perfil del usuario autenticado.
 
-    Nunca recibe profile_id.
-
-    Retorna
-    -------
-    Profile | None
+    Nunca utiliza profile_id ni user_id enviados desde
+    el cliente.
     """
 
-    return db.query(Profile).filter(
-        Profile.user_id == current_user.id
-    ).first()
+    return (
+        db.query(Profile)
+        .filter(
+            Profile.user_id == current_user.id
+        )
+        .first()
+    )
 
 
-# ==========================================================
-# UPDATE PROFILE
-# ==========================================================
+# ============================================================
+# UPDATE MY PROFILE
+# ============================================================
 
 def update_my_profile(
     db: Session,
@@ -121,24 +139,36 @@ def update_my_profile(
     """
     Actualiza el perfil del usuario autenticado.
 
-    Sólo se actualizan los campos enviados.
+    Permite actualización parcial.
 
-    Retorna
-    -------
-    Profile | None
+    Sólo los campos enviados en la petición serán modificados.
     """
 
-    profile = db.query(Profile).filter(
-        Profile.user_id == current_user.id
-    ).first()
+    profile = (
+        db.query(Profile)
+        .filter(
+            Profile.user_id == current_user.id
+        )
+        .first()
+    )
 
     if not profile:
         return None
 
-    update_data = profile_data.model_dump(exclude_unset=True)
+    # --------------------------------------------------------
+    # Obtener únicamente los campos enviados
+    # --------------------------------------------------------
 
-    for key, value in update_data.items():
-        setattr(profile, key, value)
+    update_data = profile_data.model_dump(
+        exclude_unset=True
+    )
+
+    # --------------------------------------------------------
+    # Aplicar cambios
+    # --------------------------------------------------------
+
+    for field, value in update_data.items():
+        setattr(profile, field, value)
 
     db.commit()
     db.refresh(profile)
@@ -146,9 +176,9 @@ def update_my_profile(
     return profile
 
 
-# ==========================================================
-# DELETE PROFILE
-# ==========================================================
+# ============================================================
+# DELETE MY PROFILE
+# ============================================================
 
 def delete_my_profile(
     db: Session,
@@ -156,15 +186,15 @@ def delete_my_profile(
 ):
     """
     Elimina el perfil del usuario autenticado.
-
-    Retorna
-    -------
-    Profile | None
     """
 
-    profile = db.query(Profile).filter(
-        Profile.user_id == current_user.id
-    ).first()
+    profile = (
+        db.query(Profile)
+        .filter(
+            Profile.user_id == current_user.id
+        )
+        .first()
+    )
 
     if not profile:
         return None
