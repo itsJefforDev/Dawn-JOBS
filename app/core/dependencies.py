@@ -1,26 +1,32 @@
 """
 app/core/dependencies.py
 
-Dependencias utilizadas por FastAPI para proteger los endpoints
-que requieren autenticación.
+Dependencias relacionadas con la autenticación.
 
 Responsabilidades:
+    - Extraer el JWT desde el header Authorization.
+    - Validar el JWT.
+    - Obtener el usuario autenticado.
+    - Proporcionar current_user a los endpoints protegidos.
 
-    - Obtener el token JWT enviado por el cliente.
-    - Validar el token.
-    - Obtener el ID del usuario.
-    - Buscar al usuario en la base de datos.
-    - Retornar el usuario autenticado.
-
-Todas las APIs privadas del sistema deberán utilizar:
+Las APIs privadas utilizarán:
 
     Depends(get_current_user)
 
-De esta manera NO necesitamos recibir user_id desde el frontend.
+Por seguridad, el frontend nunca enviará user_id
+para identificar al usuario.
 """
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import (
+    Depends,
+    HTTPException,
+    status
+)
+
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials
+)
 
 from sqlalchemy.orm import Session
 
@@ -30,62 +36,57 @@ from app.models.user import User
 
 
 # ============================================================
-# CONFIGURACIÓN DEL TOKEN
+# HTTP BEARER
 # ============================================================
 
 """
-OAuth2PasswordBearer le indica a FastAPI que el token JWT será
-enviado mediante:
+HTTPBearer indica que nuestra API utiliza:
 
-    Authorization: Bearer <TOKEN>
+    Authorization: Bearer <JWT>
 
-El parámetro tokenUrl indica dónde se realiza el login.
+Esto es diferente de OAuth2PasswordBearer.
 
-IMPORTANTE:
-
-Esto NO realiza el login.
-
-Únicamente permite que FastAPI extraiga el token de las
-peticiones protegidas.
+No estamos implementando el flujo OAuth2 Password.
+Nuestro login es un endpoint JSON que genera un JWT.
 """
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
-)
+security = HTTPBearer()
 
 
 # ============================================================
-# USUARIO AUTENTICADO
+# CURRENT USER
 # ============================================================
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el usuario actualmente autenticado.
+    Obtiene el usuario autenticado desde el JWT.
 
     Flujo:
 
-        Request
-            ↓
-        Authorization: Bearer TOKEN
-            ↓
-        OAuth2PasswordBearer
-            ↓
-        JWT
-            ↓
+        Authorization Header
+                ↓
+        Bearer <JWT>
+                ↓
         decode_access_token()
-            ↓
+                ↓
         user_id
-            ↓
-        Base de datos
-            ↓
+                ↓
+        Database
+                ↓
         User
     """
 
     # --------------------------------------------------------
-    # Decodificar el JWT
+    # Extraer token
+    # --------------------------------------------------------
+
+    token = credentials.credentials
+
+    # --------------------------------------------------------
+    # Decodificar JWT
     # --------------------------------------------------------
 
     payload = decode_access_token(token)
@@ -100,7 +101,7 @@ def get_current_user(
         )
 
     # --------------------------------------------------------
-    # Obtener el user_id desde el JWT
+    # Obtener ID del usuario
     # --------------------------------------------------------
 
     user_id = payload.get("sub")
@@ -115,7 +116,7 @@ def get_current_user(
         )
 
     # --------------------------------------------------------
-    # Buscar el usuario en la base de datos
+    # Buscar usuario
     # --------------------------------------------------------
 
     user = (
@@ -134,7 +135,7 @@ def get_current_user(
         )
 
     # --------------------------------------------------------
-    # Retornar usuario autenticado
+    # Usuario autenticado
     # --------------------------------------------------------
 
     return user
