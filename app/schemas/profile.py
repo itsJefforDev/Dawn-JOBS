@@ -149,8 +149,8 @@ class ProfileResponse(BaseModel):
     salary_expectation: str | None
     work_mode: str
 
-    created_at: datetime
-    updated_at: datetime | None
+    # created_at: datetime
+    # updated_at: datetime | None
 
     class Config:
         from_attributes = True

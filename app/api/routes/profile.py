@@ -1,21 +1,23 @@
 """
-Rutas del módulo Profile.
+Endpoints del módulo Profile.
 
-Todas las operaciones requieren autenticación mediante JWT.
+Todos los endpoints requieren autenticación JWT.
 
-El usuario autenticado es obtenido automáticamente mediante
-la dependencia get_current_user(), evitando recibir user_id
+El usuario se obtiene mediante:
+
+    Depends(get_current_user)
+
+Por seguridad, ningún endpoint recibe user_id
 desde el frontend.
-
-Endpoints:
-
-POST    /profile/me      Crear perfil
-GET     /profile/me      Obtener mi perfil
-PUT     /profile/me      Actualizar mi perfil
-DELETE  /profile/me      Eliminar mi perfil
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status
+)
+
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -29,7 +31,12 @@ from app.schemas.profile import (
     ProfileResponse
 )
 
-from app.services import profile_service
+from app.services.profile_service import (
+    create_profile,
+    get_my_profile,
+    update_my_profile,
+    delete_my_profile
+)
 
 
 router = APIRouter(
@@ -38,9 +45,9 @@ router = APIRouter(
 )
 
 
-# ==========================================================
-# CREATE PROFILE
-# ==========================================================
+# ============================================================
+# CREATE
+# ============================================================
 
 @router.post(
     "/me",
@@ -50,122 +57,173 @@ router = APIRouter(
     description="""
 Crea el perfil profesional del usuario autenticado.
 
-Un usuario únicamente puede tener un perfil.
-Si ya existe uno, se devolverá un error.
-"""
+El user_id NO se recibe desde el cliente.
+
+El backend obtiene automáticamente el usuario mediante
+el JWT enviado en el Header Authorization.
+
+Un usuario solamente puede tener un perfil.
+""",
+    responses={
+        401: {
+            "description": "Usuario no autenticado"
+        },
+        409: {
+            "description": "El usuario ya tiene un perfil"
+        }
+    }
 )
-def create_profile(
-    profile: ProfileCreate,
+def create_my_profile(
+    profile_data: ProfileCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Crea el perfil del usuario autenticado.
+    """
 
-    new_profile = profile_service.create_profile(
+    profile = create_profile(
         db,
         current_user,
-        profile
+        profile_data
     )
 
-    if not new_profile:
+    if profile is None:
         raise HTTPException(
-            status_code=400,
-            detail="Profile already exists."
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Profile already exists"
         )
 
-    return new_profile
+    return profile
 
 
-# ==========================================================
-# GET MY PROFILE
-# ==========================================================
+# ============================================================
+# GET
+# ============================================================
 
 @router.get(
     "/me",
     response_model=ProfileResponse,
     summary="Obtener mi perfil",
     description="""
-Obtiene el perfil del usuario autenticado.
-"""
+Obtiene el perfil perteneciente al usuario autenticado.
+""",
+    responses={
+        401: {
+            "description": "Usuario no autenticado"
+        },
+        404: {
+            "description": "Perfil no encontrado"
+        }
+    }
 )
-def get_my_profile(
+def get_my_profile_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Devuelve el perfil del usuario autenticado.
+    """
 
-    profile = profile_service.get_my_profile(
+    profile = get_my_profile(
         db,
         current_user
     )
 
-    if not profile:
+    if profile is None:
         raise HTTPException(
-            status_code=404,
-            detail="Profile not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
         )
 
     return profile
 
 
-# ==========================================================
-# UPDATE PROFILE
-# ==========================================================
+# ============================================================
+# UPDATE
+# ============================================================
 
 @router.put(
     "/me",
     response_model=ProfileResponse,
     summary="Actualizar mi perfil",
     description="""
-Actualiza únicamente los campos enviados del perfil del usuario autenticado.
-"""
+Actualiza los datos del perfil del usuario autenticado.
+
+Sólo los campos enviados serán modificados.
+""",
+    responses={
+        401: {
+            "description": "Usuario no autenticado"
+        },
+        404: {
+            "description": "Perfil no encontrado"
+        }
+    }
 )
-def update_profile(
+def update_my_profile_data(
     profile_data: ProfileUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Actualiza el perfil del usuario autenticado.
+    """
 
-    profile = profile_service.update_my_profile(
+    profile = update_my_profile(
         db,
         current_user,
         profile_data
     )
 
-    if not profile:
+    if profile is None:
         raise HTTPException(
-            status_code=404,
-            detail="Profile not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
         )
 
     return profile
 
 
-# ==========================================================
-# DELETE PROFILE
-# ==========================================================
+# ============================================================
+# DELETE
+# ============================================================
 
 @router.delete(
     "/me",
+    status_code=status.HTTP_200_OK,
     summary="Eliminar mi perfil",
     description="""
-Elimina el perfil del usuario autenticado.
-"""
+Elimina permanentemente el perfil del usuario autenticado.
+""",
+    responses={
+        401: {
+            "description": "Usuario no autenticado"
+        },
+        404: {
+            "description": "Perfil no encontrado"
+        }
+    }
 )
-def delete_profile(
+def delete_my_profile_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Elimina el perfil del usuario autenticado.
+    """
 
-    profile = profile_service.delete_my_profile(
+    profile = delete_my_profile(
         db,
         current_user
     )
 
-    if not profile:
+    if profile is None:
         raise HTTPException(
-            status_code=404,
-            detail="Profile not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
         )
 
     return {
-        "message": "Profile deleted successfully."
+        "message": "Profile deleted successfully"
     }
