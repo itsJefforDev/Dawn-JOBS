@@ -1,3 +1,31 @@
+"""
+Servicio de autenticación.
+
+Este módulo contiene la lógica de negocio relacionada con:
+
+    - Registro de usuarios.
+    - Autenticación de usuarios.
+    - Generación de tokens JWT.
+
+Responsabilidades:
+    - Consultar usuarios en la base de datos.
+    - Validar credenciales.
+    - Generar hashes de contraseñas.
+    - Generar tokens de acceso.
+
+Este módulo NO se encarga de:
+    - Recibir peticiones HTTP.
+    - Definir rutas.
+    - Extraer el JWT del request.
+
+La lógica HTTP pertenece a:
+    app/api/routes/auth.py
+
+La validación del usuario autenticado pertenece a:
+    app/core/dependencies.py
+"""
+
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -14,32 +42,56 @@ from app.core.security import (
 # REGISTRO DE USUARIO
 # ============================================================
 
-def create_user(db: Session, user_data: UserCreate):
+def create_user(
+    db: Session,
+    user_data: UserCreate
+):
     """
-    Crea un nuevo usuario en la base de datos.
+    Crea un nuevo usuario.
 
     Flujo:
-        1. Verifica que el email no esté registrado.
-        2. Hashea la contraseña.
-        3. Crea el usuario.
-        4. Guarda el usuario en la base de datos.
-        5. Devuelve el usuario creado.
 
-    IMPORTANTE:
-        La contraseña NUNCA se almacena directamente.
-        Solamente se almacena su hash.
+        1. Busca si el email ya está registrado.
+        2. Si existe, devuelve 409 Conflict.
+        3. Hashea la contraseña.
+        4. Crea el usuario.
+        5. Guarda el usuario en PostgreSQL.
+        6. Devuelve el usuario creado.
+
+    Parámetros
+    ----------
+    db:
+        Sesión activa de SQLAlchemy.
+
+    user_data:
+        Datos enviados por el usuario durante el registro.
+
+    Returns
+    -------
+    User:
+        Usuario creado.
+
+    Raises
+    ------
+    HTTPException:
+        409 si el email ya está registrado.
     """
 
     # --------------------------------------------------------
-    # Verificar si el email ya existe
+    # Verificar email existente
     # --------------------------------------------------------
 
-    existing_user = db.query(User).filter(
-        User.email == user_data.email
-    ).first()
+    existing_user = (
+        db.query(User)
+        .filter(User.email == user_data.email)
+        .first()
+    )
 
     if existing_user:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered"
+        )
 
     # --------------------------------------------------------
     # Crear usuario
@@ -49,16 +101,22 @@ def create_user(db: Session, user_data: UserCreate):
         name=user_data.name,
         email=user_data.email,
 
-        # La contraseña se transforma en un hash
-        password_hash=hash_password(user_data.password_hash)
+        # Nunca almacenamos la contraseña original.
+        # Se almacena únicamente el hash.
+        password_hash=hash_password(
+            user_data.password
+        )
     )
 
     # --------------------------------------------------------
-    # Guardar en la base de datos
+    # Persistir usuario
     # --------------------------------------------------------
 
     db.add(new_user)
     db.commit()
+
+    # Recargar el objeto para obtener, por ejemplo,
+    # el ID generado por PostgreSQL.
     db.refresh(new_user)
 
     return new_user
@@ -68,28 +126,58 @@ def create_user(db: Session, user_data: UserCreate):
 # LOGIN
 # ============================================================
 
-def login_user(db: Session, email: str, password: str):
+def login_user(
+    db: Session,
+    email: str,
+    password: str
+):
     """
-    Autentica un usuario.
+    Autentica un usuario y genera un JWT.
 
     Flujo:
 
-        1. Busca el usuario mediante su email.
-        2. Verifica la contraseña.
-        3. Genera un JWT.
-        4. Devuelve el token y datos básicos del usuario.
+        email + password
+                ↓
+        Buscar usuario
+                ↓
+        Verificar contraseña
+                ↓
+        Generar JWT
+                ↓
+        Devolver token
 
-    El JWT será utilizado posteriormente por las APIs
-    protegidas para identificar al usuario autenticado.
+    Parámetros
+    ----------
+    db:
+        Sesión activa de SQLAlchemy.
+
+    email:
+        Email enviado durante el login.
+
+    password:
+        Contraseña en texto plano enviada por el usuario.
+
+    Returns
+    -------
+    dict | None:
+        Información del token si las credenciales son correctas.
+        None si las credenciales no son válidas.
+
+    Nota de seguridad:
+        No diferenciamos entre "usuario no existe" y
+        "contraseña incorrecta" para evitar revelar qué
+        emails están registrados.
     """
 
     # --------------------------------------------------------
     # Buscar usuario
     # --------------------------------------------------------
 
-    user = db.query(User).filter(
-        User.email == email
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
     if not user:
         return None
@@ -98,26 +186,33 @@ def login_user(db: Session, email: str, password: str):
     # Verificar contraseña
     # --------------------------------------------------------
 
-    if not verify_password(password, user.password_hash):
+    password_valid = verify_password(
+        password,
+        user.password_hash
+    )
+
+    if not password_valid:
         return None
 
     # --------------------------------------------------------
-    # Crear JWT
+    # Generar JWT
     # --------------------------------------------------------
 
     access_token = create_access_token(
-        data={
-            "sub": str(user.id)
-        }
+        user_id=user.id,
+        email=user.email
     )
 
     # --------------------------------------------------------
-    # Respuesta del login
+    # Respuesta
     # --------------------------------------------------------
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
+
+        # Información básica del usuario.
+        # Nunca incluimos password_hash.
         "user": {
             "id": user.id,
             "name": user.name,
